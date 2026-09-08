@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-multipart
+firebase-admin
+requests
+pydantic
+python-dotenv
+opencv-python-headless
+pytesseract
+Pillow
+transformers
+torch
+groq

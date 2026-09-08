@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Partner - Dashboard Corporativo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; background-color: #f4f4f9; color: #333; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        button { padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #2980b9; }
+        .response-box { background: #eef2f7; padding: 15px; border-radius: 4px; margin-top: 20px; min-height: 50px; white-space: pre-wrap; line-height: 1.5; }
+        .fonte-tag { font-size: 0.85em; font-weight: bold; color: #7f8c8d; margin-bottom: 5px; display: block; }
+        .chart-container { margin-top: 20px; display: none; }
+    </style>
+    <!-- Library apenas para o Gráfico -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <h1>My Partner 🤖</h1>
+    <p>Assistente Executivo Corporativo | TechCorp Soluções</p>
+
+    <div class="input-group">
+        <input type="text" id="perguntaInput" placeholder="Pergunte sobre estoque, finanças ou peça análises e dicas..." />
+        <button onclick="enviarPergunta()">Enviar</button>
+    </div>
+
+    <div id="responseBox" class="response-box" style="display:none;">
+        <span id="fonteTag" class="fonte-tag"></span>
+        <div id="respostaTexto"></div>
+        <div id="chartWrapper" class="chart-container">
+            <canvas id="meuGrafico"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+function renderizarGrafico(chartData) {
+    const ctx = document.getElementById('meuGrafico').getContext('2d');
+    
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    const labels = chartData.data.map(item => item.label);
+    const valores = chartData.data.map(item => item.valor);
+    const tipoGrafico = chartData.tipo || 'bar';
+
+    // Cores dinâmicas para caso o gráfico seja do tipo Pizza (pie)
+    const coresBg = tipoGrafico === 'pie' 
+        ? ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6']
+        : 'rgba(52, 152, 219, 0.7)';
+
+    const coresBorder = tipoGrafico === 'pie'
+        ? ['#2980b9', '#c0392b', '#27ae60', '#f39c12', '#8e44ad']
+        : 'rgba(41, 128, 185, 1)';
+
+    chartInstance = new Chart(ctx, {
+        type: tipoGrafico,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: chartData.titulo || 'Valores',
+                data: valores,
+                backgroundColor: coresBg,
+                borderColor: coresBorder,
+                borderWidth: 1.5,
+                fill: tipoGrafico === 'line' ? false : true,
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true }
+            }
+        }
+    });
+}
+    let chartInstance = null;
+
+    // Enviar com a tecla ENTER
+    document.getElementById("perguntaInput").addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            enviarPergunta();
+        }
+    });
+
+    // Função simples para converter marcações do Markdown em HTML puro sem depender de CDNs externas
+    function formatarTexto(texto) {
+        if (!texto) return "";
+        let html = texto
+            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Negrito
+            .replace(/\*(.*?)\*/g, "<em>$1</em>")             // Itálico
+            .replace(/^- (.*$)/gim, "• $1")                   // Listas/Tópicos
+            .replace(/\n/g, "<br>");                          // Quebras de linha
+        return html;
+    }
+
+    async function enviarPergunta() {
+        const input = document.getElementById("perguntaInput");
+        const pergunta = input.value.trim();
+        if (!pergunta) return;
+
+        const responseBox = document.getElementById("responseBox");
+        const fonteTag = document.getElementById("fonteTag");
+        const respostaTexto = document.getElementById("respostaTexto");
+        const chartWrapper = document.getElementById("chartWrapper");
+
+        responseBox.style.display = "block";
+        fonteTag.innerText = "Aguarde...";
+        respostaTexto.innerHTML = "Analisando dados do sistema...";
+        chartWrapper.style.display = "none";
+
+        try {
+            const res = await fetch("http://127.0.0.1:8000/api/pergunta", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pergunta: pergunta })
+            });
+
+            const data = await res.json();
+
+            fonteTag.innerText = "Fonte: " + (data.fonte || "Sistema");
+            
+            // Formatador de texto integrado (Negrito e quebras de linha funcionam 100%)
+            respostaTexto.innerHTML = formatarTexto(data.resposta);
+
+            // Renderiza gráfico se retornado
+            if (data.chart_data && data.chart_data.grafico && data.chart_data.data && data.chart_data.data.length > 0) {
+                renderizarGrafico(data.chart_data);
+                chartWrapper.style.display = "block";
+            }
+
+        } catch (err) {
+            fonteTag.innerText = "Erro";
+            respostaTexto.innerText = "Falha ao conectar com o backend. Verifique se o Uvicorn está rodando na porta 8000.";
+        }
+    }
+
+    function renderizarGrafico(chartData) {
+        const ctx = document.getElementById('meuGrafico').getContext('2d');
+        
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        const labels = chartData.data.map(item => item.label);
+        const valores = chartData.data.map(item => item.valor);
+
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: chartData.titulo || 'Valores',
+                    data: valores,
+                    backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                    borderColor: 'rgba(41, 128, 185, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

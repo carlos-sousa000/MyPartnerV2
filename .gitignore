@@ -1,0 +1,12 @@
+backend/.venv/
+backend/.env
+frontend/.env.local
+backend/firebase-service-account.json
+backend/__pycache__/
+backend/empresa.db-shm
+backend/empresa.db-wal
+backend/uploads/*
+!backend/uploads/.gitkeep
+frontend/node_modules/
+frontend/.next/
+*.pyc
