@@ -672,26 +672,6 @@ export default function Home() {
               <article style={{ padding: "16px", backgroundColor: "#f9fafb", borderRadius: "12px" }}>
                 <h3 style={{ marginBottom: "12px" }}>Informações da Empresa</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>
-                      Nome da Empresa
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.empresa_nome}
-                      onChange={(e) => setSettings({ ...settings, empresa_nome: e.target.value })}
-                      placeholder="Nome da empresa"
-                      style={{
-                        width: "100%",
-                        padding: "12px",
-                        border: "2px solid #ddd",
-                        borderRadius: "6px",
-                        fontSize: "24px",
-                        fontWeight: "700",
-                        color: "#176b55",
-                      }}
-                    />
-                  </div>
                   <div style={{ position: "relative" }}>
                     <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
                       Editar nome
