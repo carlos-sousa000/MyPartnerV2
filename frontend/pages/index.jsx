@@ -155,7 +155,6 @@ export default function Home() {
   });
   const [settings, setSettings] = useState({
     empresa_nome: "",
-    notificacoes: true,
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -736,19 +735,7 @@ export default function Home() {
                 </div>
               </article>
 
-              <article style={{ padding: "16px", backgroundColor: "#f9fafb", borderRadius: "12px" }}>
-                <h3 style={{ marginBottom: "12px" }}>Notificações</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={settings.notificacoes}
-                      onChange={(e) => setSettings({ ...settings, notificacoes: e.target.checked })}
-                    />
-                    <span style={{ fontSize: "14px" }}>Ativar notificações por email</span>
-                  </label>
-                </div>
-              </article>
+              {/* Notificações removed as requested */}
             </div>
 
             <article style={{ marginTop: "24px", padding: "16px", backgroundColor: "#fef2f2", borderRadius: "12px", borderLeft: "4px solid #dc2626" }}>
