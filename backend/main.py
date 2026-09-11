@@ -161,85 +161,126 @@ def company_document(company_id: int):
     return db.collection("empresas").document(str(company_id))
 
 
-def ensure_company_exists(company_id: int) -> dict:
+def ensure_company_exists(company_id: int) -> None:
+    """Garantir que a empresa existe; criar se necessário."""
     if company_id <= 0:
         company_id = DEFAULT_COMPANY_ID
 
     if USE_FIRESTORE:
-        doc = company_document(company_id).get()
-        if not doc.exists:
-            company_document(company_id).set({
-                "nome": "Minha Empresa",
-                "segmento": "Negócios",
-            })
-        return get_company(company_id)
-
-    with sqlite3.connect(DB_PATH) as conn:
-        existing = conn.execute(
-            "SELECT id FROM empresas WHERE id = ?",
-            (company_id,),
-        ).fetchone()
-        if not existing:
-            conn.execute(
-                "INSERT INTO empresas (id, nome, segmento) VALUES (?, ?, ?)",
-                (company_id, "Minha Empresa", "Negócios"),
-            )
-            conn.commit()
-    return get_company(company_id)
+        try:
+            doc = company_document(company_id).get()
+            if not doc.exists:
+                print(f"[INFO] Criando empresa {company_id} no Firestore")
+                company_document(company_id).set({
+                    "nome": "Minha Empresa",
+                    "segmento": "Negócios",
+                })
+            else:
+                print(f"[INFO] Empresa {company_id} já existe no Firestore")
+        except Exception as exc:
+            print(f"[ERROR] Falha ao verificar/criar empresa {company_id} no Firestore: {exc}")
+            raise
+    else:
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                existing = conn.execute(
+                    "SELECT id FROM empresas WHERE id = ?",
+                    (company_id,),
+                ).fetchone()
+                if not existing:
+                    print(f"[INFO] Criando empresa {company_id} no SQLite")
+                    conn.execute(
+                        "INSERT INTO empresas (id, nome, segmento) VALUES (?, ?, ?)",
+                        (company_id, "Minha Empresa", "Negócios"),
+                    )
+                    conn.commit()
+                else:
+                    print(f"[INFO] Empresa {company_id} já existe no SQLite")
+        except Exception as exc:
+            print(f"[ERROR] Falha ao verificar/criar empresa {company_id} no SQLite: {exc}")
+            raise
 
 
 def get_company(company_id: int):
+    """Recuperar informações da empresa (sem criar)."""
+    if company_id <= 0:
+        company_id = DEFAULT_COMPANY_ID
+
     if USE_FIRESTORE:
-        snapshot = company_document(company_id).get()
-        if not snapshot.exists:
-            return ensure_company_exists(company_id)
-        data = snapshot.to_dict()
-        return {"id": company_id, "nome": data.get("nome", "Empresa"), "segmento": data.get("segmento", "")}
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        company = conn.execute("SELECT id, nome, segmento FROM empresas WHERE id = ?", (company_id,)).fetchone()
-    if not company:
-        return ensure_company_exists(company_id)
-    return dict(company)
+        try:
+            snapshot = company_document(company_id).get()
+            if not snapshot.exists:
+                print(f"[WARN] Empresa {company_id} não encontrada no Firestore; tentando criar...")
+                ensure_company_exists(company_id)
+                snapshot = company_document(company_id).get()
+            data = snapshot.to_dict() or {}
+            return {"id": company_id, "nome": data.get("nome", "Empresa"), "segmento": data.get("segmento", "")}
+        except Exception as exc:
+            print(f"[ERROR] Falha ao recuperar empresa {company_id} do Firestore: {exc}")
+            raise HTTPException(status_code=500, detail=f"Erro ao ler empresa: {exc}")
+    else:
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.row_factory = sqlite3.Row
+                company = conn.execute(
+                    "SELECT id, nome, segmento FROM empresas WHERE id = ?",
+                    (company_id,),
+                ).fetchone()
+            if not company:
+                print(f"[WARN] Empresa {company_id} não encontrada no SQLite; tentando criar...")
+                ensure_company_exists(company_id)
+                with sqlite3.connect(DB_PATH) as conn:
+                    conn.row_factory = sqlite3.Row
+                    company = conn.execute(
+                        "SELECT id, nome, segmento FROM empresas WHERE id = ?",
+                        (company_id,),
+                    ).fetchone()
+            return dict(company) if company else {"id": company_id, "nome": "Empresa", "segmento": ""}
+        except Exception as exc:
+            print(f"[ERROR] Falha ao recuperar empresa {company_id} do SQLite: {exc}")
+            raise HTTPException(status_code=500, detail=f"Erro ao ler empresa: {exc}")
 
 
 def resolve_company_id(company_id: int, authorization: Optional[str]) -> int:
+    """Resolver o company_id correto para o usuário autenticado."""
     identity = verify_identity(authorization)
     if not identity:
+        print(f"[INFO] Resolvendo company_id sem autenticação: {company_id}")
         return company_id
+
+    uid = identity["uid"]
+    print(f"[INFO] Resolvendo company_id para usuário {uid}")
 
     claimed_company = identity.get("company_id")
     if claimed_company is None and db:
         try:
-            user = db.collection("usuarios").document(identity["uid"]).get()
+            user = db.collection("usuarios").document(uid).get()
             if user.exists:
                 claimed_company = user.to_dict().get("empresa_id")
+                print(f"[INFO] Empresa vinculada ao usuário (Firestore): {claimed_company}")
         except Exception as exc:
             print(f"[WARN] Falha ao ler vínculo de empresa do usuário: {exc}")
 
     if claimed_company is None:
         if company_id and company_id > 0:
+            print(f"[INFO] Usuário sem empresa vinculada; usando company_id fornecido: {company_id}")
             try:
                 if db:
-                    db.collection("usuarios").document(identity["uid"]).set(
+                    db.collection("usuarios").document(uid).set(
                         {"empresa_id": int(company_id)},
                         merge=True,
                     )
+                    print(f"[INFO] Gravado empresa_id {company_id} para usuário {uid}")
             except Exception as exc:
                 print(f"[WARN] Não foi possível gravar empresa do usuário: {exc}")
-            try:
-                ensure_company_exists(int(company_id))
-            except Exception as exc:
-                print(f"[WARN] Não foi possível garantir existência da empresa {company_id}: {exc}")
+            
+            ensure_company_exists(int(company_id))
             return int(company_id)
+        else:
+            raise HTTPException(status_code=403, detail="Usuário sem empresa vinculada")
 
-        raise HTTPException(status_code=403, detail="Usuário sem empresa vinculada")
-
-    try:
-        ensure_company_exists(int(claimed_company))
-    except Exception as exc:
-        print(f"[WARN] Empresa vinculada não existe; criação de fallback falhou: {exc}")
-
+    print(f"[INFO] Usando company_id vinculado: {claimed_company}")
+    ensure_company_exists(int(claimed_company))
     return int(claimed_company)
 
 
