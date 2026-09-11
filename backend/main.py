@@ -608,9 +608,13 @@ def update_company(company_id: int, payload: CompanyCreate, authorization: Optio
 
 @app.delete("/api/empresas/{company_id}")
 def delete_company(company_id: int, authorization: Optional[str] = Header(default=None)):
-    """Delete a company and all associated data."""
+    """Delete a company and all associated data, and delete the Firebase user account."""
     company_id = resolve_company_id(company_id, authorization)
     get_company(company_id)  # Verify it exists
+    
+    # Get the user's Firebase UID before deleting
+    identity = verify_identity(authorization)
+    uid = identity["uid"] if identity else None
     
     if USE_FIRESTORE:
         try:
@@ -620,14 +624,20 @@ def delete_company(company_id: int, authorization: Optional[str] = Header(defaul
                 for doc in doc_ref.collection(subcol).stream():
                     doc.reference.delete()
             doc_ref.delete()
-            # Remove link from usuario
-            identity = verify_identity(authorization)
-            if identity:
-                db.collection("usuarios").document(identity["uid"]).set(
-                    {"empresa_id": None},
-                    merge=True,
-                )
-            return {"status": "ok", "message": "Empresa deletada com sucesso"}
+            
+            # Delete the usuario document
+            if uid:
+                db.collection("usuarios").document(uid).delete()
+            
+            # Delete the Firebase user account from Authentication
+            if uid and cred:
+                try:
+                    auth.delete_user(uid)
+                    print(f"[INFO] Firebase user {uid} deletado com sucesso")
+                except Exception as e:
+                    print(f"[WARN] Erro ao deletar usuário Firebase {uid}: {e}")
+            
+            return {"status": "ok", "message": "Empresa e conta deletadas com sucesso"}
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Erro ao deletar empresa: {exc}")
     else:
@@ -637,7 +647,16 @@ def delete_company(company_id: int, authorization: Optional[str] = Header(defaul
                 conn.execute("DELETE FROM financeiro WHERE empresa_id = ?", (company_id,))
                 conn.execute("DELETE FROM empresas WHERE id = ?", (company_id,))
                 conn.commit()
-            return {"status": "ok", "message": "Empresa deletada com sucesso"}
+            
+            # Delete the Firebase user account from Authentication
+            if uid and cred:
+                try:
+                    auth.delete_user(uid)
+                    print(f"[INFO] Firebase user {uid} deletado com sucesso")
+                except Exception as e:
+                    print(f"[WARN] Erro ao deletar usuário Firebase {uid}: {e}")
+            
+            return {"status": "ok", "message": "Empresa e conta deletadas com sucesso"}
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Erro ao deletar empresa: {exc}")
 
