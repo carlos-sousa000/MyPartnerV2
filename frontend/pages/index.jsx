@@ -155,7 +155,6 @@ export default function Home() {
   });
   const [settings, setSettings] = useState({
     empresa_nome: "",
-    empresa_segmento: "",
     notificacoes: true,
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -196,12 +195,11 @@ export default function Home() {
           ? data
           : { stock: [], capital: { revenue: 0, expenses: 0, profit: 0 }, finance: [] },
       );
-      // Also load settings
+      // Also load settings (company name)
       if (data && data.company && !settingsLoaded) {
         setSettings(prev => ({
           ...prev,
           empresa_nome: data.company.nome || "Minha Empresa",
-          empresa_segmento: data.company.segmento || "Negócios",
         }));
         setSettingsLoaded(true);
       }
@@ -694,21 +692,44 @@ export default function Home() {
                       }}
                     />
                   </div>
-                  <div>
+                  <div style={{ position: "relative" }}>
                     <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
-                      Segmento
+                      Editar nome
                     </label>
-                    <select
-                      value={settings.empresa_segmento}
-                      onChange={(e) => setSettings({ ...settings, empresa_segmento: e.target.value })}
-                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "6px" }}
+                    <input
+                      id="empresaNomeInput"
+                      type="text"
+                      value={settings.empresa_nome}
+                      onChange={(e) => setSettings({ ...settings, empresa_nome: e.target.value })}
+                      placeholder="Nome da empresa"
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        paddingRight: "44px",
+                        border: "2px solid #ddd",
+                        borderRadius: "6px",
+                        fontSize: "24px",
+                        fontWeight: "700",
+                        color: "#176b55",
+                      }}
+                    />
+                    <button
+                      title="Editar nome"
+                      onClick={() => document.getElementById("empresaNomeInput")?.focus()}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "18px",
+                        color: "#6b7280",
+                      }}
                     >
-                      <option value="Negócios">Negócios</option>
-                      <option value="Varejo">Varejo</option>
-                      <option value="Serviços">Serviços</option>
-                      <option value="Manufactura">Manufactura</option>
-                      <option value="Outros">Outros</option>
-                    </select>
+                      ✎
+                    </button>
                   </div>
                   <button
                     className="primary-action"
@@ -721,7 +742,6 @@ export default function Home() {
                         },
                         body: JSON.stringify({
                           nome: settings.empresa_nome,
-                          segmento: settings.empresa_segmento,
                         }),
                       });
                       if (res.ok) {
