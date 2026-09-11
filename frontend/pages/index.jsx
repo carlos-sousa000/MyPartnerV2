@@ -46,8 +46,10 @@ function LoginPanel() {
         mode === "login"
           ? await signInWithEmailAndPassword(firebaseAuth, email, password)
           : await createUserWithEmailAndPassword(firebaseAuth, email, password);
+      
       if (mode === "signup") {
         const token = await result.user.getIdToken();
+        console.log("[DEBUG] Criando empresa:", { nome: company || "Minha empresa" });
         const createRes = await fetch(`${backendUrl}/api/empresas`, {
           method: "POST",
           headers: {
@@ -60,11 +62,19 @@ function LoginPanel() {
           }),
         });
         const createData = await createRes.json();
-        if (createRes.ok && createData.id) {
+        console.log("[DEBUG] Resposta de /api/empresas:", { status: createRes.status, data: createData });
+        
+        if (createRes.ok && createData && createData.id) {
+          console.log("[DEBUG] Gravando empresa_id no localStorage:", createData.id);
           localStorage.setItem("my_partner_company_id", String(createData.id));
+        } else {
+          console.warn("[WARN] Resposta não contém id válido ou status não-ok", createData);
+          // Fallback: usar company_id padrão
+          localStorage.setItem("my_partner_company_id", "1");
         }
       }
     } catch (err) {
+      console.error("[ERROR] Erro no login/signup:", err);
       setError(err.message || "Não foi possível autenticar.");
     } finally {
       setBusy(false);
@@ -179,13 +189,38 @@ export default function Home() {
 
   useEffect(() => {
     // Avoid calling the backend while Firebase auth is unresolved (user === undefined).
-    // When `user` becomes null (no auth) or a valid user object, we call loadDashboard.
     if (user === undefined) return;
+    
+    // After user logs in, try to sync company_id from backend if localStorage is empty
+    if (user && !localStorage.getItem("my_partner_company_id")) {
+      console.log("[DEBUG] Usuário logado mas sem company_id no localStorage; tentando sincronizar...");
+      (async () => {
+        try {
+          const token = await user.getIdToken();
+          const res = await fetch(`${backendUrl}/api/empresa?company_id=1`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.id) {
+              console.log("[DEBUG] Sincronizado company_id do backend:", data.id);
+              setCompanyId(data.id);
+              localStorage.setItem("my_partner_company_id", String(data.id));
+            }
+          }
+        } catch (err) {
+          console.warn("[WARN] Falha ao sincronizar company_id:", err);
+        }
+      })();
+    }
+    
     // Also ensure companyId is synced to state after auth
     const storedId = Number(localStorage.getItem("my_partner_company_id"));
     if (storedId && storedId !== companyId) {
+      console.log("[DEBUG] Sincronizando companyId do localStorage:", storedId);
       setCompanyId(storedId);
     }
+    
     loadDashboard();
   }, [backendUrl, companyId, user]);
 
