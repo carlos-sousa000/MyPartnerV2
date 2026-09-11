@@ -242,6 +242,15 @@ export default function Home() {
     loadDashboard();
   }, [backendUrl, user]);
 
+  // When the selected company changes (for example after login or sync),
+  // reload the dashboard and allow settings to be updated with the
+  // correct company data.
+  useEffect(() => {
+    if (!companyId) return;
+    setSettingsLoaded(false);
+    loadDashboard();
+  }, [companyId]);
+
   async function submitStock(event) {
     event.preventDefault();
     if (!stockForm.produto || !stockForm.quantidade) return;
