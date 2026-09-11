@@ -537,7 +537,25 @@ def home():
 
 
 @app.get("/api/empresa")
-def current_company(company_id: int = DEFAULT_COMPANY_ID, authorization: Optional[str] = Header(default=None)):
+def current_company(company_id: Optional[int] = None, authorization: Optional[str] = Header(default=None)):
+    """Get the current user's linked company (or fallback to provided company_id)."""
+    identity = verify_identity(authorization)
+    
+    if identity and db:
+        try:
+            user_doc = db.collection("usuarios").document(identity["uid"]).get()
+            if user_doc.exists:
+                user_data = user_doc.to_dict()
+                linked_company_id = user_data.get("empresa_id")
+                if linked_company_id:
+                    print(f"[INFO] User {identity['uid']} has linked company {linked_company_id}")
+                    return get_company(int(linked_company_id))
+        except Exception as exc:
+            print(f"[WARN] Failed to read user company link: {exc}")
+    
+    # Fallback if no user or no linked company
+    if company_id is None:
+        company_id = DEFAULT_COMPANY_ID
     company_id = resolve_company_id(company_id, authorization)
     return get_company(company_id)
 

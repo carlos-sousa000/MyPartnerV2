@@ -191,22 +191,24 @@ export default function Home() {
     // Avoid calling the backend while Firebase auth is unresolved (user === undefined).
     if (user === undefined) return;
     
-    // After user logs in, try to sync company_id from backend if localStorage is empty
-    if (user && !localStorage.getItem("my_partner_company_id")) {
-      console.log("[DEBUG] Usuário logado mas sem company_id no localStorage; tentando sincronizar...");
+    // After user logs in, always fetch their company_id from backend (isolate per user)
+    if (user) {
+      console.log("[DEBUG] Usuário logado; sincronizando company_id vinculado ao perfil...");
       (async () => {
         try {
           const token = await user.getIdToken();
-          const res = await fetch(`${backendUrl}/api/empresa?company_id=1`, {
+          const res = await fetch(`${backendUrl}/api/empresa`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.ok) {
             const data = await res.json();
             if (data && data.id) {
-              console.log("[DEBUG] Sincronizado company_id do backend:", data.id);
+              console.log("[DEBUG] Company_id do usuário logado:", data.id);
               setCompanyId(data.id);
               localStorage.setItem("my_partner_company_id", String(data.id));
             }
+          } else {
+            console.warn("[WARN] Falha ao recuperar company_id do usuário:", res.status);
           }
         } catch (err) {
           console.warn("[WARN] Falha ao sincronizar company_id:", err);
@@ -214,15 +216,8 @@ export default function Home() {
       })();
     }
     
-    // Also ensure companyId is synced to state after auth
-    const storedId = Number(localStorage.getItem("my_partner_company_id"));
-    if (storedId && storedId !== companyId) {
-      console.log("[DEBUG] Sincronizando companyId do localStorage:", storedId);
-      setCompanyId(storedId);
-    }
-    
     loadDashboard();
-  }, [backendUrl, companyId, user]);
+  }, [backendUrl, user]);
 
   async function submitStock(event) {
     event.preventDefault();
