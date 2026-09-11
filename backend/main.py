@@ -35,20 +35,40 @@ app.add_middleware(
 
 # Firebase init (optional)
 FIREBASE_CRED = os.getenv('FIREBASE_CRED_JSON')
-if FIREBASE_CRED and os.path.exists(FIREBASE_CRED):
-    cred = credentials.Certificate(FIREBASE_CRED)
-elif FIREBASE_CRED and FIREBASE_CRED.lstrip().startswith("{"):
-    cred = credentials.Certificate(json.loads(FIREBASE_CRED))
-else:
-    cred = None
+cred = None
+if FIREBASE_CRED:
+    try:
+        # Case 1: path to a file on disk (useful for some hosts)
+        if os.path.exists(FIREBASE_CRED):
+            cred = credentials.Certificate(FIREBASE_CRED)
+        else:
+            s = FIREBASE_CRED.strip()
+            # Case 2: raw JSON string
+            if s.startswith("{"):
+                cred = credentials.Certificate(json.loads(s))
+            else:
+                # Case 3: base64 encoded JSON (common when storing multiline secrets)
+                try:
+                    decoded = base64.b64decode(s).decode("utf-8")
+                    cred = credentials.Certificate(json.loads(decoded))
+                except Exception:
+                    raise RuntimeError("FIREBASE_CRED_JSON not a file, valid JSON or base64 JSON")
+    except Exception as e:
+        print("[ERROR] Failed to load FIREBASE_CRED_JSON:", e)
+        cred = None
 
 if cred:
-    firebase_options = {}
-    storage_bucket = os.getenv('FIREBASE_STORAGE_BUCKET')
-    if storage_bucket:
-        firebase_options['storageBucket'] = storage_bucket
-    firebase_admin.initialize_app(cred, firebase_options)
-    db = firestore.client()
+    try:
+        firebase_options = {}
+        storage_bucket = os.getenv('FIREBASE_STORAGE_BUCKET')
+        if storage_bucket:
+            firebase_options['storageBucket'] = storage_bucket
+        firebase_admin.initialize_app(cred, firebase_options)
+        db = firestore.client()
+        print("[INFO] Firebase Admin initialized successfully")
+    except Exception as e:
+        print("[ERROR] Firebase Admin initialization failed:", e)
+        db = None
 else:
     db = None
 
