@@ -738,7 +738,7 @@ export default function Home() {
               {/* Notificações removed as requested */}
             </div>
 
-            <article style={{ marginTop: "24px", padding: "16px", backgroundColor: "#fef2f2", borderRadius: "12px", borderLeft: "4px solid #dc2626" }}>
+            <article style={{ marginTop: "24px", padding: "16px", borderRadius: "12px" }}>
               <h3 style={{ marginBottom: "12px", color: "#7f1d1d" }}>Zona de Risco</h3>
               <p style={{ fontSize: "14px", color: "#7f1d1d", marginBottom: "12px" }}>
                 Estas ações são irreversíveis. Prossiga com cuidado.
