@@ -151,15 +151,30 @@ export default function Home() {
   }
 
   const loadDashboard = async () => {
-    fetch(`${backendUrl}/api/dashboard?company_id=${companyId}`, {
-      headers: await authHeaders(),
-    })
-      .then((res) => res.json())
-      .then(setDashboard)
-      .catch(() => undefined);
+    try {
+      const res = await fetch(`${backendUrl}/api/dashboard?company_id=${companyId}`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) {
+        console.warn("Failed to load dashboard", res.status);
+        // don't override existing dashboard state with error payloads
+        return;
+      }
+      const data = await res.json();
+      setDashboard(
+        data && typeof data === "object"
+          ? data
+          : { stock: [], capital: { revenue: 0, expenses: 0, profit: 0 }, finance: [] },
+      );
+    } catch (err) {
+      console.warn("Error loading dashboard", err);
+    }
   };
 
   useEffect(() => {
+    // Avoid calling the backend while Firebase auth is unresolved (user === undefined).
+    // When `user` becomes null (no auth) or a valid user object, we call loadDashboard.
+    if (user === undefined) return;
     loadDashboard();
   }, [backendUrl, companyId, user]);
 
@@ -168,7 +183,7 @@ export default function Home() {
     if (!stockForm.produto || !stockForm.quantidade) return;
     if (
       !window.confirm(
-        `Confirmar ${stockForm.tipo} de ${stockForm.quantidade} unidade(s) de ${stockForm.produto}?`,
+        `Confirmar ${stockForm.tipo} de ${stockForm.quantidade} unidade(s) de ${stockForm.produto}?`
       )
     )
       return;
@@ -185,12 +200,12 @@ export default function Home() {
           quantidade: Number(stockForm.quantidade),
           preco_unitario: Number(stockForm.preco_unitario || 0),
         }),
-      },
+      }
     );
     const result = await response.json();
     if (!response.ok)
       return window.alert(
-        result.detail || "Não foi possível atualizar o estoque.",
+        result.detail || "Não foi possível atualizar o estoque."
       );
     setStockForm({
       produto: "",
@@ -221,12 +236,12 @@ export default function Home() {
           faturamento: Number(financeForm.faturamento || 0),
           despesas: Number(financeForm.despesas || 0),
         }),
-      },
+      }
     );
     const result = await response.json();
     if (!response.ok)
       return window.alert(
-        result.detail || "Não foi possível lançar o financeiro.",
+        result.detail || "Não foi possível lançar o financeiro."
       );
     setFinanceForm({ mes: "", faturamento: "", despesas: "" });
     loadDashboard();
@@ -236,7 +251,7 @@ export default function Home() {
     grafico: true,
     tipo: "line",
     titulo: "Faturamento por mês",
-    data: dashboard.finance.map((row) => ({
+    data: (dashboard?.finance || []).map((row) => ({
       label: row.mes,
       valor: row.faturamento,
     })),
@@ -350,17 +365,17 @@ export default function Home() {
           <section className="kpi-grid">
             <DashboardCard
               title="Faturamento acumulado"
-              value={money(dashboard.capital.revenue)}
+              value={money(dashboard?.capital?.revenue)}
               detail="Período disponível no banco"
             />
             <DashboardCard
               title="Despesas acumuladas"
-              value={money(dashboard.capital.expenses)}
+              value={money(dashboard?.capital?.expenses)}
               detail="Custos registrados"
             />
             <DashboardCard
               title="Resultado"
-              value={money(dashboard.capital.profit)}
+              value={money(dashboard?.capital?.profit)}
               detail="Faturamento menos despesas"
             />
           </section>
@@ -374,7 +389,7 @@ export default function Home() {
                 <span className="tag">ao vivo</span>
               </div>
               <ul className="stock-list">
-                {dashboard.stock.map((item) => (
+                {(dashboard?.stock || []).map((item) => (
                   <li className="stock-item" key={item.produto}>
                     <div>
                       <div className="stock-name">{item.produto}</div>
@@ -408,10 +423,10 @@ export default function Home() {
                 <p className="eyebrow">Operação</p>
                 <h2>Todos os itens</h2>
               </div>
-              <span className="tag">{dashboard.stock.length} produtos</span>
+              <span className="tag">{(dashboard?.stock || []).length} produtos</span>
             </div>
             <ul className="stock-list stock-list-wide">
-              {dashboard.stock.map((item) => (
+              {(dashboard?.stock || []).map((item) => (
                 <li className="stock-item" key={item.produto}>
                   <div>
                     <div className="stock-name">{item.produto}</div>
@@ -485,7 +500,7 @@ export default function Home() {
                   <p className="eyebrow">Financeiro</p>
                   <h2>Histórico de faturamento</h2>
                 </div>
-                <span className="tag">{dashboard.finance.length} períodos</span>
+                <span className="tag">{(dashboard?.finance || []).length} períodos</span>
               </div>
               {renderChart()}
             </article>
@@ -494,7 +509,7 @@ export default function Home() {
                 <h2>Resumo por período</h2>
               </div>
               <ul className="stock-list">
-                {dashboard.finance.map((row) => (
+                {(dashboard?.finance || []).map((row) => (
                   <li className="stock-item" key={row.mes}>
                     <div>
                       <div className="stock-name">{row.mes}</div>
