@@ -782,15 +782,25 @@ export default function Home() {
                 }}
                 onClick={async () => {
                   if (window.confirm("Tem certeza que deseja deletar esta empresa e todos seus dados? Esta ação não pode ser desfeita.")) {
-                    const headers = await authHeaders();
-                    await fetch(`${backendUrl}/api/empresas/${companyId}`, {
-                      method: "DELETE",
-                      headers,
-                    }).then(() => {
-                      localStorage.removeItem("my_partner_company_id");
-                      setCompanyId(Number(process.env.NEXT_PUBLIC_COMPANY_ID || 1));
-                      signOut(firebaseAuth);
-                    });
+                    try {
+                      const headers = await authHeaders();
+                      const res = await fetch(`${backendUrl}/api/empresas/${companyId}`, {
+                        method: "DELETE",
+                        headers,
+                      });
+                      if (res.ok) {
+                        window.alert("Empresa deletada com sucesso!");
+                        localStorage.removeItem("my_partner_company_id");
+                        setCompanyId(Number(process.env.NEXT_PUBLIC_COMPANY_ID || 1));
+                        signOut(firebaseAuth);
+                      } else {
+                        const errData = await res.json();
+                        window.alert(`Erro ao deletar: ${errData.detail || res.statusText}`);
+                      }
+                    } catch (err) {
+                      console.error("[ERROR] Erro ao deletar empresa:", err);
+                      window.alert(`Erro ao deletar empresa: ${err.message}`);
+                    }
                   }
                 }}
               >
