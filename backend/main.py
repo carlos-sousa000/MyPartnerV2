@@ -117,7 +117,20 @@ def verify_identity(authorization: Optional[str]) -> Optional[dict]:
     if not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Token inválido")
     if not firebase_admin._apps:
-        raise HTTPException(status_code=503, detail="Firebase Auth não configurado")
+        # If the server requires authentication, failing to have Firebase admin
+        # configured is a real server-side error. Otherwise log a warning and
+        # continue treating the request as unauthenticated.
+        if REQUIRE_AUTH:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Firebase Auth não configurado. Defina FIREBASE_CRED_JSON "
+                    "no ambiente do backend ou ajuste REQUIRE_AUTH para false."
+                ),
+            )
+        else:
+            print("[WARN] Authorization header received but Firebase Admin is not configured; proceeding without verification.")
+            return None
     try:
         return auth.verify_id_token(authorization.split(" ", 1)[1])
     except Exception as exc:
