@@ -251,6 +251,20 @@ def resolve_company_id(company_id: int, authorization: Optional[str]) -> int:
     uid = identity["uid"]
     print(f"[INFO] Resolvendo company_id para usuário {uid}")
 
+    # Verificar se o usuário foi marcado como deletado
+    if db:
+        try:
+            user = db.collection("usuarios").document(uid).get()
+            if user.exists:
+                user_data = user.to_dict()
+                if user_data.get("deleted", False):
+                    print(f"[WARN] Usuário {uid} foi deletado")
+                    raise HTTPException(status_code=403, detail="Sua conta foi deletada permanentemente")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            print(f"[WARN] Falha ao verificar status de deleção: {exc}")
+
     claimed_company = identity.get("company_id")
     if claimed_company is None and db:
         try:
@@ -625,9 +639,13 @@ def delete_company(company_id: int, authorization: Optional[str] = Header(defaul
                     doc.reference.delete()
             doc_ref.delete()
             
-            # Delete the usuario document
+            # Mark the usuario as deleted (instead of deleting) to prevent re-login
             if uid:
-                db.collection("usuarios").document(uid).delete()
+                db.collection("usuarios").document(uid).set(
+                    {"deleted": True, "empresa_id": None},
+                    merge=True,
+                )
+                print(f"[INFO] Usuário {uid} marcado como deletado")
             
             # Delete the Firebase user account from Authentication
             if uid and cred:
