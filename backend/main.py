@@ -161,6 +161,48 @@ def company_document(company_id: int):
     return db.collection("empresas").document(str(company_id))
 
 
+def ensure_company_exists(company_id: int) -> dict:
+    if company_id <= 0:
+        company_id = DEFAULT_COMPANY_ID
+
+    if USE_FIRESTORE:
+        doc = company_document(company_id).get()
+        if not doc.exists:
+            company_document(company_id).set({
+                "nome": "Minha Empresa",
+                "segmento": "Negócios",
+            })
+        return get_company(company_id)
+
+    with sqlite3.connect(DB_PATH) as conn:
+        existing = conn.execute(
+            "SELECT id FROM empresas WHERE id = ?",
+            (company_id,),
+        ).fetchone()
+        if not existing:
+            conn.execute(
+                "INSERT INTO empresas (id, nome, segmento) VALUES (?, ?, ?)",
+                (company_id, "Minha Empresa", "Negócios"),
+            )
+            conn.commit()
+    return get_company(company_id)
+
+
+def get_company(company_id: int):
+    if USE_FIRESTORE:
+        snapshot = company_document(company_id).get()
+        if not snapshot.exists:
+            return ensure_company_exists(company_id)
+        data = snapshot.to_dict()
+        return {"id": company_id, "nome": data.get("nome", "Empresa"), "segmento": data.get("segmento", "")}
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        company = conn.execute("SELECT id, nome, segmento FROM empresas WHERE id = ?", (company_id,)).fetchone()
+    if not company:
+        return ensure_company_exists(company_id)
+    return dict(company)
+
+
 def resolve_company_id(company_id: int, authorization: Optional[str]) -> int:
     identity = verify_identity(authorization)
     if not identity:
@@ -176,8 +218,6 @@ def resolve_company_id(company_id: int, authorization: Optional[str]) -> int:
             print(f"[WARN] Falha ao ler vínculo de empresa do usuário: {exc}")
 
     if claimed_company is None:
-        # Fallback para o company_id informado pela aplicação. Isso evita bloquear
-        # usuários recém-criados ou usuários cujo vínculo ainda não foi salvo.
         if company_id and company_id > 0:
             try:
                 if db:
@@ -187,9 +227,18 @@ def resolve_company_id(company_id: int, authorization: Optional[str]) -> int:
                     )
             except Exception as exc:
                 print(f"[WARN] Não foi possível gravar empresa do usuário: {exc}")
+            try:
+                ensure_company_exists(int(company_id))
+            except Exception as exc:
+                print(f"[WARN] Não foi possível garantir existência da empresa {company_id}: {exc}")
             return int(company_id)
 
         raise HTTPException(status_code=403, detail="Usuário sem empresa vinculada")
+
+    try:
+        ensure_company_exists(int(claimed_company))
+    except Exception as exc:
+        print(f"[WARN] Empresa vinculada não existe; criação de fallback falhou: {exc}")
 
     return int(claimed_company)
 
@@ -340,14 +389,14 @@ def get_company(company_id: int):
     if USE_FIRESTORE:
         snapshot = company_document(company_id).get()
         if not snapshot.exists:
-            raise HTTPException(status_code=404, detail="Empresa não encontrada")
+            return ensure_company_exists(company_id)
         data = snapshot.to_dict()
         return {"id": company_id, "nome": data.get("nome", "Empresa"), "segmento": data.get("segmento", "")}
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         company = conn.execute("SELECT id, nome, segmento FROM empresas WHERE id = ?", (company_id,)).fetchone()
     if not company:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+        return ensure_company_exists(company_id)
     return dict(company)
 
 

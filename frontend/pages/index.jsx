@@ -48,7 +48,7 @@ function LoginPanel() {
           : await createUserWithEmailAndPassword(firebaseAuth, email, password);
       if (mode === "signup") {
         const token = await result.user.getIdToken();
-        await fetch(`${backendUrl}/api/empresas`, {
+        const createRes = await fetch(`${backendUrl}/api/empresas`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -59,6 +59,10 @@ function LoginPanel() {
             segmento: "Negócios",
           }),
         });
+        const createData = await createRes.json();
+        if (createRes.ok && createData.id) {
+          localStorage.setItem("my_partner_company_id", String(createData.id));
+        }
       }
     } catch (err) {
       setError(err.message || "Não foi possível autenticar.");
@@ -118,7 +122,9 @@ function LoginPanel() {
 export default function Home() {
   const backendUrl =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-  const companyId = Number(process.env.NEXT_PUBLIC_COMPANY_ID || 1);
+  const [companyId, setCompanyId] = useState(
+    () => Number(localStorage.getItem("my_partner_company_id")) || Number(process.env.NEXT_PUBLIC_COMPANY_ID || 1)
+  );
   const [dashboard, setDashboard] = useState({
     stock: [],
     capital: { revenue: 0, expenses: 0, profit: 0 },
@@ -175,6 +181,11 @@ export default function Home() {
     // Avoid calling the backend while Firebase auth is unresolved (user === undefined).
     // When `user` becomes null (no auth) or a valid user object, we call loadDashboard.
     if (user === undefined) return;
+    // Also ensure companyId is synced to state after auth
+    const storedId = Number(localStorage.getItem("my_partner_company_id"));
+    if (storedId && storedId !== companyId) {
+      setCompanyId(storedId);
+    }
     loadDashboard();
   }, [backendUrl, companyId, user]);
 
