@@ -165,13 +165,32 @@ def resolve_company_id(company_id: int, authorization: Optional[str]) -> int:
     identity = verify_identity(authorization)
     if not identity:
         return company_id
+
     claimed_company = identity.get("company_id")
     if claimed_company is None and db:
-        user = db.collection("usuarios").document(identity["uid"]).get()
-        if user.exists:
-            claimed_company = user.to_dict().get("empresa_id")
+        try:
+            user = db.collection("usuarios").document(identity["uid"]).get()
+            if user.exists:
+                claimed_company = user.to_dict().get("empresa_id")
+        except Exception as exc:
+            print(f"[WARN] Falha ao ler vínculo de empresa do usuário: {exc}")
+
     if claimed_company is None:
+        # Fallback para o company_id informado pela aplicação. Isso evita bloquear
+        # usuários recém-criados ou usuários cujo vínculo ainda não foi salvo.
+        if company_id and company_id > 0:
+            try:
+                if db:
+                    db.collection("usuarios").document(identity["uid"]).set(
+                        {"empresa_id": int(company_id)},
+                        merge=True,
+                    )
+            except Exception as exc:
+                print(f"[WARN] Não foi possível gravar empresa do usuário: {exc}")
+            return int(company_id)
+
         raise HTTPException(status_code=403, detail="Usuário sem empresa vinculada")
+
     return int(claimed_company)
 
 
