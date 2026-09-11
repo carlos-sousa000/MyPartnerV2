@@ -133,7 +133,7 @@ export default function Home() {
   const backendUrl =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   const [companyId, setCompanyId] = useState(
-    () => Number(localStorage.getItem("my_partner_company_id")) || Number(process.env.NEXT_PUBLIC_COMPANY_ID || 1)
+    Number(process.env.NEXT_PUBLIC_COMPANY_ID || 1)
   );
   const [dashboard, setDashboard] = useState({
     stock: [],
@@ -168,6 +168,14 @@ export default function Home() {
       return undefined;
     }
     return onAuthStateChanged(firebaseAuth, setUser);
+  }, []);
+
+  // Sync companyId from localStorage on mount (client-side only)
+  useEffect(() => {
+    const stored = localStorage.getItem("my_partner_company_id");
+    if (stored) {
+      setCompanyId(Number(stored));
+    }
   }, []);
 
   async function authHeaders() {
