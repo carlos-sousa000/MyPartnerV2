@@ -157,8 +157,6 @@ export default function Home() {
     empresa_nome: "",
     empresa_segmento: "",
     notificacoes: true,
-    idioma: "pt-BR",
-    timezone: "America/Sao_Paulo",
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -663,12 +661,12 @@ export default function Home() {
                 <h2>Configurações da empresa</h2>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
               <article style={{ padding: "16px", backgroundColor: "#f9fafb", borderRadius: "12px" }}>
                 <h3 style={{ marginBottom: "12px" }}>Informações da Empresa</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                   <div>
-                    <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
+                    <label style={{ display: "block", fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>
                       Nome da Empresa
                     </label>
                     <input
@@ -676,7 +674,15 @@ export default function Home() {
                       value={settings.empresa_nome}
                       onChange={(e) => setSettings({ ...settings, empresa_nome: e.target.value })}
                       placeholder="Nome da empresa"
-                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "6px" }}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        border: "2px solid #ddd",
+                        borderRadius: "6px",
+                        fontSize: "24px",
+                        fontWeight: "700",
+                        color: "#176b55",
+                      }}
                     />
                   </div>
                   <div>
@@ -716,50 +722,21 @@ export default function Home() {
                       }
                     }}
                   >
-                    Salvar Informações
+                    Salvar Configurações
                   </button>
                 </div>
               </article>
 
               <article style={{ padding: "16px", backgroundColor: "#f9fafb", borderRadius: "12px" }}>
-                <h3 style={{ marginBottom: "12px" }}>Preferências</h3>
+                <h3 style={{ marginBottom: "12px" }}>Notificações</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
-                      Idioma
-                    </label>
-                    <select
-                      value={settings.idioma}
-                      onChange={(e) => setSettings({ ...settings, idioma: e.target.value })}
-                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "6px" }}
-                    >
-                      <option value="pt-BR">Português (Brasil)</option>
-                      <option value="en-US">English (USA)</option>
-                      <option value="es-ES">Español (España)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
-                      Fuso Horário
-                    </label>
-                    <select
-                      value={settings.timezone}
-                      onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
-                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "6px" }}
-                    >
-                      <option value="America/Sao_Paulo">São Paulo (GMT-3)</option>
-                      <option value="America/Recife">Recife (GMT-3)</option>
-                      <option value="America/Manaus">Manaus (GMT-4)</option>
-                      <option value="America/Rio_Branco">Rio Branco (GMT-5)</option>
-                    </select>
-                  </div>
                   <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
                     <input
                       type="checkbox"
                       checked={settings.notificacoes}
                       onChange={(e) => setSettings({ ...settings, notificacoes: e.target.checked })}
                     />
-                    <span style={{ fontSize: "14px" }}>Ativar notificações</span>
+                    <span style={{ fontSize: "14px" }}>Ativar notificações por email</span>
                   </label>
                 </div>
               </article>
