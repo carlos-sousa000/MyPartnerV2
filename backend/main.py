@@ -578,6 +578,70 @@ def create_company(payload: CompanyCreate, authorization: Optional[str] = Header
     return get_company(company_id)
 
 
+@app.patch("/api/empresas/{company_id}")
+def update_company(company_id: int, payload: CompanyCreate, authorization: Optional[str] = Header(default=None)):
+    """Update company name and segment."""
+    company_id = resolve_company_id(company_id, authorization)
+    get_company(company_id)  # Verify it exists
+    
+    if USE_FIRESTORE:
+        try:
+            company_document(company_id).set({
+                "nome": payload.nome.strip(),
+                "segmento": payload.segmento.strip(),
+            }, merge=True)
+            return {"status": "ok", "id": company_id}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Erro ao atualizar empresa: {exc}")
+    else:
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute(
+                    "UPDATE empresas SET nome = ?, segmento = ? WHERE id = ?",
+                    (payload.nome.strip(), payload.segmento.strip(), company_id),
+                )
+                conn.commit()
+            return {"status": "ok", "id": company_id}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Erro ao atualizar empresa: {exc}")
+
+
+@app.delete("/api/empresas/{company_id}")
+def delete_company(company_id: int, authorization: Optional[str] = Header(default=None)):
+    """Delete a company and all associated data."""
+    company_id = resolve_company_id(company_id, authorization)
+    get_company(company_id)  # Verify it exists
+    
+    if USE_FIRESTORE:
+        try:
+            # Delete company doc and all subcollections
+            doc_ref = company_document(company_id)
+            for subcol in ["estoque", "financeiro"]:
+                for doc in doc_ref.collection(subcol).stream():
+                    doc.reference.delete()
+            doc_ref.delete()
+            # Remove link from usuario
+            identity = verify_identity(authorization)
+            if identity:
+                db.collection("usuarios").document(identity["uid"]).set(
+                    {"empresa_id": None},
+                    merge=True,
+                )
+            return {"status": "ok", "message": "Empresa deletada com sucesso"}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Erro ao deletar empresa: {exc}")
+    else:
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("DELETE FROM estoque WHERE empresa_id = ?", (company_id,))
+                conn.execute("DELETE FROM financeiro WHERE empresa_id = ?", (company_id,))
+                conn.execute("DELETE FROM empresas WHERE id = ?", (company_id,))
+                conn.commit()
+            return {"status": "ok", "message": "Empresa deletada com sucesso"}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Erro ao deletar empresa: {exc}")
+
+
 @app.get("/api/dashboard")
 def dashboard(company_id: int = DEFAULT_COMPANY_ID, authorization: Optional[str] = Header(default=None)):
     """Return the local SQLite snapshot used by the Next.js dashboard."""

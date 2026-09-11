@@ -153,6 +153,14 @@ export default function Home() {
     faturamento: "",
     despesas: "",
   });
+  const [settings, setSettings] = useState({
+    empresa_nome: "",
+    empresa_segmento: "",
+    notificacoes: true,
+    idioma: "pt-BR",
+    timezone: "America/Sao_Paulo",
+  });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
     if (!firebaseConfigured) {
@@ -182,6 +190,15 @@ export default function Home() {
           ? data
           : { stock: [], capital: { revenue: 0, expenses: 0, profit: 0 }, finance: [] },
       );
+      // Also load settings
+      if (data && data.company && !settingsLoaded) {
+        setSettings(prev => ({
+          ...prev,
+          empresa_nome: data.company.nome || "Minha Empresa",
+          empresa_segmento: data.company.segmento || "Negócios",
+        }));
+        setSettingsLoaded(true);
+      }
     } catch (err) {
       console.warn("Error loading dashboard", err);
     }
@@ -306,6 +323,7 @@ export default function Home() {
     stock: { eyebrow: "Operação", title: "Controle de estoque." },
     capital: { eyebrow: "Financeiro", title: "Capital sob controle." },
     chat: { eyebrow: "Assistente", title: "Converse com seus dados." },
+    settings: { eyebrow: "Administração", title: "Configurações da empresa." },
   };
   const currentView = views[activeView];
 
@@ -377,6 +395,14 @@ export default function Home() {
         >
           ◒ <span>Capital</span>
         </button>
+        <div style={{ marginTop: "auto", paddingTop: "16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+          <button
+            className={`nav-item ${activeView === "settings" ? "active" : ""}`}
+            onClick={() => setActiveView("settings")}
+          >
+            ⚙ <span>Configurações</span>
+          </button>
+        </div>
       </aside>
 
       <main className="main">
@@ -618,6 +644,174 @@ export default function Home() {
               user={user}
               initialChartData={null}
             />
+          </section>
+        )}
+
+        {activeView === "settings" && (
+          <section className="panel page-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Administração</p>
+                <h2>Configurações da empresa</h2>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+              <article style={{ padding: "16px", backgroundColor: "#f9fafb", borderRadius: "12px" }}>
+                <h3 style={{ marginBottom: "12px" }}>Informações da Empresa</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
+                      Nome da Empresa
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.empresa_nome}
+                      onChange={(e) => setSettings({ ...settings, empresa_nome: e.target.value })}
+                      placeholder="Nome da empresa"
+                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "6px" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
+                      Segmento
+                    </label>
+                    <select
+                      value={settings.empresa_segmento}
+                      onChange={(e) => setSettings({ ...settings, empresa_segmento: e.target.value })}
+                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "6px" }}
+                    >
+                      <option value="Negócios">Negócios</option>
+                      <option value="Varejo">Varejo</option>
+                      <option value="Serviços">Serviços</option>
+                      <option value="Manufactura">Manufactura</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+                  <button
+                    className="primary-action"
+                    onClick={async () => {
+                      const res = await fetch(`${backendUrl}/api/empresas/${companyId}`, {
+                        method: "PATCH",
+                        headers: {
+                          "Content-Type": "application/json",
+                          ...(await authHeaders()),
+                        },
+                        body: JSON.stringify({
+                          nome: settings.empresa_nome,
+                          segmento: settings.empresa_segmento,
+                        }),
+                      });
+                      if (res.ok) {
+                        window.alert("Configurações salvas com sucesso!");
+                      } else {
+                        window.alert("Erro ao salvar configurações.");
+                      }
+                    }}
+                  >
+                    Salvar Informações
+                  </button>
+                </div>
+              </article>
+
+              <article style={{ padding: "16px", backgroundColor: "#f9fafb", borderRadius: "12px" }}>
+                <h3 style={{ marginBottom: "12px" }}>Preferências</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
+                      Idioma
+                    </label>
+                    <select
+                      value={settings.idioma}
+                      onChange={(e) => setSettings({ ...settings, idioma: e.target.value })}
+                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "6px" }}
+                    >
+                      <option value="pt-BR">Português (Brasil)</option>
+                      <option value="en-US">English (USA)</option>
+                      <option value="es-ES">Español (España)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>
+                      Fuso Horário
+                    </label>
+                    <select
+                      value={settings.timezone}
+                      onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "6px" }}
+                    >
+                      <option value="America/Sao_Paulo">São Paulo (GMT-3)</option>
+                      <option value="America/Recife">Recife (GMT-3)</option>
+                      <option value="America/Manaus">Manaus (GMT-4)</option>
+                      <option value="America/Rio_Branco">Rio Branco (GMT-5)</option>
+                    </select>
+                  </div>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={settings.notificacoes}
+                      onChange={(e) => setSettings({ ...settings, notificacoes: e.target.checked })}
+                    />
+                    <span style={{ fontSize: "14px" }}>Ativar notificações</span>
+                  </label>
+                </div>
+              </article>
+            </div>
+
+            <article style={{ marginTop: "24px", padding: "16px", backgroundColor: "#fef2f2", borderRadius: "12px", borderLeft: "4px solid #dc2626" }}>
+              <h3 style={{ marginBottom: "12px", color: "#7f1d1d" }}>Zona de Risco</h3>
+              <p style={{ fontSize: "14px", color: "#7f1d1d", marginBottom: "12px" }}>
+                Estas ações são irreversíveis. Prossiga com cuidado.
+              </p>
+              <button
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+                onClick={() => {
+                  if (window.confirm("Tem certeza que deseja fazer logout?")) {
+                    localStorage.removeItem("my_partner_company_id");
+                    setCompanyId(Number(process.env.NEXT_PUBLIC_COMPANY_ID || 1));
+                    signOut(firebaseAuth);
+                  }
+                }}
+              >
+                Fazer Logout
+              </button>
+              <button
+                style={{
+                  marginLeft: "8px",
+                  padding: "8px 16px",
+                  backgroundColor: "#b91c1c",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+                onClick={async () => {
+                  if (window.confirm("Tem certeza que deseja deletar esta empresa e todos seus dados? Esta ação não pode ser desfeita.")) {
+                    const headers = await authHeaders();
+                    await fetch(`${backendUrl}/api/empresas/${companyId}`, {
+                      method: "DELETE",
+                      headers,
+                    }).then(() => {
+                      localStorage.removeItem("my_partner_company_id");
+                      setCompanyId(Number(process.env.NEXT_PUBLIC_COMPANY_ID || 1));
+                      signOut(firebaseAuth);
+                    });
+                  }
+                }}
+              >
+                Deletar Empresa
+              </button>
+            </article>
           </section>
         )}
       </main>
